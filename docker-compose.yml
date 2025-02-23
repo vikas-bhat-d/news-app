@@ -1,0 +1,80 @@
+version: "3.8"
+services:
+  web:
+    build:
+      context: ./news-server/api
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5001:5001"
+    depends_on:
+      - redis
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/news_db
+
+  worker:
+    build:
+      context: ./news-server/celery-queue
+      dockerfile: Dockerfile
+    entrypoint: celery
+    command: -A tasks worker -l info -E
+    environment:
+      CELERY_BROKER_URL: redis://redis
+      CELERY_RESULT_BACKEND: redis://redis
+      MONGO_URI: mongodb://mongo:27017/news_db
+    depends_on:
+      - redis
+      - mongo
+    volumes: ["./news-server/celery-queue:/queue"]
+
+  monitor:
+    build:
+      context: ./news-server/celery-queue
+      dockerfile: Dockerfile
+    ports:
+      - "5555:5555"
+    command: ["celery", "flower", "-A", "tasks"]
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - redis
+      - worker
+      - mongo
+    volumes: ["./news-server/celery-queue:/queue"]
+
+  redis:
+    image: redis:alpine
+    container_name: redis_broker
+    ports:
+      - "6379:6379"
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+  celery_beat:
+    build:
+      context: ./news-server/celery-queue
+    container_name: celery_beat
+    depends_on:
+      - redis
+      - mongo
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - MONGO_URI=mongodb://mongo:27017/news_db
+    command: celery -A tasks beat --loglevel=info
+
+  vite-react:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    container_name: vite-react-app
+
+volumes:
+  mongo_data:
