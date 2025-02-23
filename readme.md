@@ -18,7 +18,6 @@ This project is a **containerized web application** designed to fetch and displa
 
 ```sh
 git clone https://github.com/vikas-bhat-d/news-app.git
-cd <repository-folder>
 ```
 
 ### **2. Build and Start the Containers**
